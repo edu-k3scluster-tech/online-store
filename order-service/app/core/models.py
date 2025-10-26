@@ -30,3 +30,20 @@ class Order(BaseModel):
     amount: Decimal
     status: OrderStatusEnum
     status_history: list[OrderStatusHistory]
+
+
+class EventTypeEnum(StrEnum):
+    ORDER_CREATED = "ORDER.CREATED"
+
+
+class OutboxEventStatus(StrEnum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+
+
+class OutboxEvent(BaseModel):
+    id: str
+    event_type: EventTypeEnum
+    payload: dict
+    status: OutboxEventStatus
+    created_at: datetime

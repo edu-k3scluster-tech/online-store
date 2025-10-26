@@ -34,3 +34,13 @@ order_statuses_tbl = Table(
     Column("status", Text, nullable=False),
     Column("created_at", DateTime, server_default=func.now()),
 )
+
+outbox_tbl = Table(
+    "outbox",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("event_type", Text, nullable=False),
+    Column("payload", JSON, nullable=False),
+    Column("status", Text, nullable=False),
+    Column("created_at", DateTime, server_default=func.now()),
+)

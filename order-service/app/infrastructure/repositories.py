@@ -5,8 +5,15 @@ from sqlalchemy import Row, and_, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.models import Item, Order, OrderStatusEnum
-from app.infrastructure.db_schema import order_statuses_tbl, orders_tbl
+from app.core.models import (
+    EventTypeEnum,
+    Item,
+    Order,
+    OrderStatusEnum,
+    OutboxEvent,
+    OutboxEventStatus,
+)
+from app.infrastructure.db_schema import order_statuses_tbl, orders_tbl, outbox_tbl
 
 
 class DoesNotExist(Exception):
@@ -129,3 +136,62 @@ class OrderRepository:
             raise ValueError(f"Order with id {order_id} not found")
 
         return self._construct(row)
+
+
+class OutboxRepository:
+    class CreateDTO(BaseModel):
+        event_type: EventTypeEnum
+        payload: dict
+
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    @staticmethod
+    def _construct(row: Row) -> OutboxEvent:
+        if row is None:
+            raise DoesNotExist
+
+        return OutboxEvent(
+            id=str(row._mapping["id"]),
+            event_type=row._mapping["event_type"],
+            payload=row._mapping["payload"],
+            status=row._mapping["status"],
+            created_at=str(row._mapping["created_at"]),
+        )
+
+    async def create(self, event: CreateDTO) -> OutboxEvent:
+        stmt = (
+            insert(outbox_tbl)
+            .values(
+                {
+                    "event_type": event.event_type,
+                    "payload": event.payload,
+                    "status": OutboxEventStatus.PENDING,
+                }
+            )
+            .returning(literal_column("*"))
+        )
+        result = await self._session.execute(stmt)
+        row = result.fetchone()
+
+        return self._construct(row)
+
+    async def get_pending_events(self, limit: int = 100) -> list[OutboxEvent]:
+        stmt = (
+            select(outbox_tbl)
+            .where(outbox_tbl.c.status == OutboxEventStatus.PENDING)
+            .order_by(outbox_tbl.c.created_at)
+            .limit(limit)
+        )
+        result = await self._session.execute(stmt)
+        rows = result.fetchall()
+
+        return [self._construct(row) for row in rows]
+
+    async def mark_as_sent(self, event_id: str) -> None:
+        stmt = (
+            outbox_tbl.update()
+            .where(outbox_tbl.c.id == event_id)
+            .values(status=OutboxEventStatus.SENT)
+        )
+        await self._session.execute(stmt)
