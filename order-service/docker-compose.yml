@@ -10,12 +10,13 @@ services:
       DB_PASS: store
       DB_HOST: database
       DB_NAME: dev
+      PYTHONASYNCIODEBUG: "1"
     depends_on:
       - database
     networks:
       - store-network
     volumes:
-      - ./:/order
+      - ./:/app
 
   database:
     image: postgres

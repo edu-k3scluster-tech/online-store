@@ -1,42 +1,29 @@
-import asyncio
-from typing import Generator
 import uuid
 from decimal import Decimal
-from app.core.models import Item
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.container import ApplicationContainer
-from app.core.models import Order
+from app.core.models import Item
 from app.infrastructure.db_schema import metadata
-from app.infrastructure.repositories import OrderRepository
 from app.presentation import api
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope='session')
+@pytest.fixture()
 async def container() -> ApplicationContainer:
     container = ApplicationContainer()
     container.config.from_yaml("app/config.yaml", required=True)
     return container
 
 
-@pytest.fixture(scope="session")
-async def session_factory(container: ApplicationContainer) -> async_sessionmaker[AsyncSession]:
+@pytest.fixture()
+async def session_factory(
+    container: ApplicationContainer,
+) -> async_sessionmaker[AsyncSession]:
     return container.infrastructure_container.session_factory()
 
 
@@ -46,7 +33,7 @@ async def session(session_factory: async_sessionmaker[AsyncSession]) -> AsyncSes
         yield session
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 def fast_api_app(container: ApplicationContainer):
     app = FastAPI()
     app.include_router(api.router)
@@ -81,9 +68,9 @@ async def test_async_client(fast_api_app) -> AsyncClient:
 def item_factory():
     def _create_item(**kwargs):
         defaults = {
-            'id': str(uuid.uuid4()),
-            'name': 'Test item',
-            'price': Decimal('10.50')
+            "id": str(uuid.uuid4()),
+            "name": "Test item",
+            "price": Decimal("10.50"),
         }
         defaults.update(kwargs)
         return Item(**defaults)

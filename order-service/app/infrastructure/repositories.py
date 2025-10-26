@@ -1,10 +1,12 @@
+from decimal import Decimal
+
 from pydantic import BaseModel
-from sqlalchemy import literal_column, Row, select, and_, func
+from sqlalchemy import Row, and_, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from decimal import Decimal
-from app.core.models import Order, OrderStatusEnum, Item
-from app.infrastructure.db_schema import orders_tbl, order_statuses_tbl
+
+from app.core.models import Item, Order, OrderStatusEnum
+from app.infrastructure.db_schema import order_statuses_tbl, orders_tbl
 
 
 class DoesNotExist(Exception):
@@ -22,17 +24,17 @@ class OrderRepository:
         self._session = session
 
     @staticmethod
-    def _construct(row: Row) -> Order:
+    def _construct(row: Row | None) -> Order:
         if row is None:
             raise DoesNotExist
 
         return Order(
-            id=str(row._mapping['id']),
-            user_id=row._mapping['user_id'],
-            items=row._mapping['items'],
-            amount=row._mapping['amount'],
-            status=row._mapping['current_status'],
-            status_history=row._mapping['status_history']
+            id=str(row._mapping["id"]),
+            user_id=row._mapping["user_id"],
+            items=row._mapping["items"],
+            amount=row._mapping["amount"],
+            status=row._mapping["current_status"],
+            status_history=row._mapping["status_history"],
         )
 
     async def create(self, order: CreateDTO) -> Order:
@@ -41,7 +43,7 @@ class OrderRepository:
             .values(
                 {
                     "user_id": order.user_id,
-                    "items": [item.model_dump(mode='json') for item in order.items],
+                    "items": [item.model_dump(mode="json") for item in order.items],
                     "amount": order.amount,
                 }
             )
@@ -69,20 +71,17 @@ class OrderRepository:
     def _get_order_query(self):
         """Базовый query для получения заказов с последним статусом и историей"""
         # Подзапрос для последнего статуса
-        latest_status_subq = (
-            select(
-                order_statuses_tbl.c.order_id,
-                order_statuses_tbl.c.status,
-                order_statuses_tbl.c.created_at,
-                func.row_number()
-                .over(
-                    partition_by=order_statuses_tbl.c.order_id,
-                    order_by=order_statuses_tbl.c.created_at.desc()
-                )
-                .label("rn")
+        latest_status_subq = select(
+            order_statuses_tbl.c.order_id,
+            order_statuses_tbl.c.status,
+            order_statuses_tbl.c.created_at,
+            func.row_number()
+            .over(
+                partition_by=order_statuses_tbl.c.order_id,
+                order_by=order_statuses_tbl.c.created_at.desc(),
             )
-            .subquery()
-        )
+            .label("rn"),
+        ).subquery()
 
         # Подзапрос для истории статусов (JSON array)
         status_history_subq = (
@@ -90,11 +89,12 @@ class OrderRepository:
                 order_statuses_tbl.c.order_id,
                 func.json_agg(
                     func.json_build_object(
-                        'status', order_statuses_tbl.c.status,
-                        'created_at', order_statuses_tbl.c.created_at
-                    )
-                    .op('ORDER BY')(order_statuses_tbl.c.created_at.desc())
-                ).label("status_history")
+                        "status",
+                        order_statuses_tbl.c.status,
+                        "created_at",
+                        order_statuses_tbl.c.created_at,
+                    ).op("ORDER BY")(order_statuses_tbl.c.created_at.desc())
+                ).label("status_history"),
             )
             .group_by(order_statuses_tbl.c.order_id)
             .subquery()
@@ -104,19 +104,18 @@ class OrderRepository:
             select(
                 orders_tbl,
                 latest_status_subq.c.status.label("current_status"),
-                status_history_subq.c.status_history
+                status_history_subq.c.status_history,
             )
             .select_from(orders_tbl)
             .outerjoin(
                 latest_status_subq,
                 and_(
                     orders_tbl.c.id == latest_status_subq.c.order_id,
-                    latest_status_subq.c.rn == 1
-                )
+                    latest_status_subq.c.rn == 1,
+                ),
             )
             .outerjoin(
-                status_history_subq,
-                orders_tbl.c.id == status_history_subq.c.order_id
+                status_history_subq, orders_tbl.c.id == status_history_subq.c.order_id
             )
         )
 
