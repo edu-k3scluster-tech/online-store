@@ -1,0 +1,32 @@
+services:
+
+  order-service:
+    build: .
+    ports:
+      - "8000:8000"
+    command: "python bin/api.py"
+    environment:
+      DB_USER: dev
+      DB_PASS: store
+      DB_HOST: database
+      DB_NAME: dev
+    depends_on:
+      - database
+    networks:
+      - store-network
+    volumes:
+      - ./:/order
+
+  database:
+    image: postgres
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_DB: dev
+      POSTGRES_PASSWORD: store
+    ports:
+      - "5432:5432"
+    networks:
+      - store-network
+
+networks:
+  store-network:

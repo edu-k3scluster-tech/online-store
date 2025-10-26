@@ -1,0 +1,132 @@
+from pydantic import BaseModel
+from sqlalchemy import literal_column, Row, select, and_, func
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from decimal import Decimal
+from app.core.models import Order, OrderStatusEnum, Item
+from app.infrastructure.db_schema import orders_tbl, order_statuses_tbl
+
+
+class DoesNotExist(Exception):
+    pass
+
+
+class OrderRepository:
+    class CreateDTO(BaseModel):
+        user_id: str
+        items: list[Item]
+        amount: Decimal
+        status: OrderStatusEnum
+
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    @staticmethod
+    def _construct(row: Row) -> Order:
+        if row is None:
+            raise DoesNotExist
+
+        return Order(
+            id=str(row._mapping['id']),
+            user_id=row._mapping['user_id'],
+            items=row._mapping['items'],
+            amount=row._mapping['amount'],
+            status=row._mapping['current_status'],
+            status_history=row._mapping['status_history']
+        )
+
+    async def create(self, order: CreateDTO) -> Order:
+        stmt_order = (
+            insert(orders_tbl)
+            .values(
+                {
+                    "user_id": order.user_id,
+                    "items": [item.model_dump(mode='json') for item in order.items],
+                    "amount": order.amount,
+                }
+            )
+            .returning(literal_column("*"))
+        )
+        result_order = await self._session.execute(stmt_order)
+        order_row = result_order.fetchone()
+
+        stmt_status = (
+            insert(order_statuses_tbl)
+            .values(
+                {
+                    "order_id": order_row.id,
+                    "status": order.status,
+                }
+            )
+            .returning(literal_column("*"))
+        )
+        await self._session.execute(stmt_status)
+
+        order = await self.get_by_id(order_row.id)
+
+        return order
+
+    def _get_order_query(self):
+        """Базовый query для получения заказов с последним статусом и историей"""
+        # Подзапрос для последнего статуса
+        latest_status_subq = (
+            select(
+                order_statuses_tbl.c.order_id,
+                order_statuses_tbl.c.status,
+                order_statuses_tbl.c.created_at,
+                func.row_number()
+                .over(
+                    partition_by=order_statuses_tbl.c.order_id,
+                    order_by=order_statuses_tbl.c.created_at.desc()
+                )
+                .label("rn")
+            )
+            .subquery()
+        )
+
+        # Подзапрос для истории статусов (JSON array)
+        status_history_subq = (
+            select(
+                order_statuses_tbl.c.order_id,
+                func.json_agg(
+                    func.json_build_object(
+                        'status', order_statuses_tbl.c.status,
+                        'created_at', order_statuses_tbl.c.created_at
+                    )
+                    .op('ORDER BY')(order_statuses_tbl.c.created_at.desc())
+                ).label("status_history")
+            )
+            .group_by(order_statuses_tbl.c.order_id)
+            .subquery()
+        )
+
+        return (
+            select(
+                orders_tbl,
+                latest_status_subq.c.status.label("current_status"),
+                status_history_subq.c.status_history
+            )
+            .select_from(orders_tbl)
+            .outerjoin(
+                latest_status_subq,
+                and_(
+                    orders_tbl.c.id == latest_status_subq.c.order_id,
+                    latest_status_subq.c.rn == 1
+                )
+            )
+            .outerjoin(
+                status_history_subq,
+                orders_tbl.c.id == status_history_subq.c.order_id
+            )
+        )
+
+    async def get_by_id(self, order_id: str) -> Order:
+        stmt = self._get_order_query().where(orders_tbl.c.id == order_id)
+
+        result = await self._session.execute(stmt)
+        row = result.fetchone()
+
+        if row is None:
+            raise ValueError(f"Order with id {order_id} not found")
+
+        return self._construct(row)
