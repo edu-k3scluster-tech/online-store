@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from pydantic import BaseModel
+
 from app.core.models import Item, OrderStatusEnum
 from app.infrastructure.repositories import OrderRepository
 from app.infrastructure.unit_of_work import UnitOfWork
@@ -18,18 +19,15 @@ class CreateOrderUseCase:
     ):
         self._unit_of_work = unit_of_work
 
-    async def __call__(
-        self,
-        order: OrderDTO
-    ) -> None:
+    async def __call__(self, order: OrderDTO) -> None:
         async with self._unit_of_work() as uow:
-            amount = sum((item.price for item in order.items), start=Decimal('0'))
+            amount = sum((item.price for item in order.items), start=Decimal("0"))
             order = await uow.orders.create(
                 order=OrderRepository.CreateDTO(
                     user_id=order.user_id,
                     items=order.items,
                     amount=amount,
-                    status=OrderStatusEnum.NEW
+                    status=OrderStatusEnum.NEW,
                 )
             )
             await uow.commit()

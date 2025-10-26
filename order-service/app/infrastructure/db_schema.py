@@ -1,9 +1,18 @@
-from sqlalchemy import (
-    Column,
-    MetaData,
-    Table, Integer, Text, ForeignKey, DECIMAL, UUID, JSON, DateTime, func
-)
 import uuid
+
+from sqlalchemy import (
+    DECIMAL,
+    JSON,
+    UUID,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    func,
+)
 
 metadata = MetaData()
 
@@ -25,4 +34,3 @@ order_statuses_tbl = Table(
     Column("status", Text, nullable=False),
     Column("created_at", DateTime, server_default=func.now()),
 )
-

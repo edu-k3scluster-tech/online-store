@@ -19,4 +19,6 @@ class InfrastructureContainer(containers.DeclarativeContainer):
     session_factory: Callable[..., AsyncSession] = providers.Factory(
         sessionmaker, async_engine, expire_on_commit=False, class_=AsyncSession
     )
-    unit_of_work = providers.Singleton[UnitOfWork](UnitOfWork, session_factory=session_factory)
+    unit_of_work = providers.Singleton[UnitOfWork](
+        UnitOfWork, session_factory=session_factory
+    )

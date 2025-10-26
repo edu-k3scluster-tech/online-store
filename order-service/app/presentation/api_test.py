@@ -1,12 +1,13 @@
 import uuid
-from decimal import Decimal
-from typing import Callable
 from http import HTTPStatus
-import pytest
+from typing import Callable
 from unittest.mock import ANY
+
+import pytest
+from httpx import AsyncClient
+
 from app.core.models import OrderStatusEnum
 from app.presentation.api import OrderCreateRequest
-from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -20,7 +21,7 @@ async def test_create_order(
     req = OrderCreateRequest(user_id=user_id, items=items)
 
     # When
-    response = await test_async_client.post("/orders", json=req.model_dump(mode='json'))
+    response = await test_async_client.post("/orders", json=req.model_dump(mode="json"))
 
     # Then
     assert response.status_code == HTTPStatus.CREATED
@@ -30,9 +31,5 @@ async def test_create_order(
     assert data["amount"] == "31.50"
     assert data["status"] == OrderStatusEnum.NEW
     assert data["status_history"] == [
-        {
-            "status": str(OrderStatusEnum.NEW),
-            "created_at": ANY
-        }
+        {"status": str(OrderStatusEnum.NEW), "created_at": ANY}
     ]
-
