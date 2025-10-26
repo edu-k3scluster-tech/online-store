@@ -2,8 +2,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from app.core.models import Item, OrderStatusEnum
-from app.infrastructure.repositories import OrderRepository
+from app.core.models import EventTypeEnum, Item, Order, OrderStatusEnum
+from app.infrastructure.repositories import OrderRepository, OutboxRepository
 from app.infrastructure.unit_of_work import UnitOfWork
 
 
@@ -19,7 +19,7 @@ class CreateOrderUseCase:
     ):
         self._unit_of_work = unit_of_work
 
-    async def __call__(self, order: OrderDTO) -> None:
+    async def __call__(self, order: OrderDTO) -> Order:
         async with self._unit_of_work() as uow:
             amount = sum((item.price for item in order.items), start=Decimal("0"))
             order = await uow.orders.create(
@@ -28,6 +28,12 @@ class CreateOrderUseCase:
                     items=order.items,
                     amount=amount,
                     status=OrderStatusEnum.NEW,
+                )
+            )
+            await uow.outbox.create(
+                event=OutboxRepository.CreateDTO(
+                    event_type=EventTypeEnum.ORDER_CREATED,
+                    payload=order.model_dump(mode="json"),
                 )
             )
             await uow.commit()
