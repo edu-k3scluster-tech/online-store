@@ -39,11 +39,6 @@ class TestOrderRepository:
         assert [s.status for s in order_new.status_history] == [OrderStatusEnum.NEW]
 
 
-@pytest.fixture
-async def outbox_repo(session: AsyncSession) -> OutboxRepository:
-    return OutboxRepository(session)
-
-
 class TestOutboxRepository:
     @pytest.mark.asyncio
     async def test_create_event(self, outbox_repo: OutboxRepository):

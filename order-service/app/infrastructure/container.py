@@ -4,6 +4,7 @@ from dependency_injector import containers, providers
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.infrastructure.kafka_producer import KafkaProducer
 from app.infrastructure.unit_of_work import UnitOfWork
 
 
@@ -21,4 +22,9 @@ class InfrastructureContainer(containers.DeclarativeContainer):
     )
     unit_of_work = providers.Singleton[UnitOfWork](
         UnitOfWork, session_factory=session_factory
+    )
+    kafka_producer = providers.Singleton[KafkaProducer](
+        KafkaProducer,
+        bootstrap_servers=config.kafka.bootstrap_servers,
+        topic=config.kafka.topic,
     )

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.application.container import ApplicationContainer
 from app.core.models import Item
 from app.infrastructure.db_schema import metadata
+from app.infrastructure.repositories import OutboxRepository
 from app.presentation import api
 
 
@@ -76,3 +77,8 @@ def item_factory():
         return Item(**defaults)
 
     return _create_item
+
+
+@pytest.fixture
+async def outbox_repo(session: AsyncSession) -> OutboxRepository:
+    return OutboxRepository(session)

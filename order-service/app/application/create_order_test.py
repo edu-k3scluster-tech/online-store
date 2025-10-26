@@ -18,11 +18,6 @@ async def create_order_use_case(
     return CreateOrderUseCase(unit_of_work=uow)
 
 
-@pytest.fixture
-async def outbox_repo(session: AsyncSession) -> OutboxRepository:
-    return OutboxRepository(session)
-
-
 class TestCreateOrderUseCase:
     @pytest.mark.asyncio
     async def test_create_order_success(

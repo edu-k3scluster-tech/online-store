@@ -188,6 +188,13 @@ class OutboxRepository:
 
         return [self._construct(row) for row in rows]
 
+    async def get_by_id(self, event_id: str) -> OutboxEvent:
+        stmt = select(outbox_tbl).where(outbox_tbl.c.id == event_id)
+        result = await self._session.execute(stmt)
+        row = result.fetchone()
+
+        return self._construct(row)
+
     async def mark_as_sent(self, event_id: str) -> None:
         stmt = (
             outbox_tbl.update()
