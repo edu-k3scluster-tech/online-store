@@ -1,6 +1,6 @@
 services:
   order-service:
-    build: .
+    build: ./order-service/.
     ports:
       - "8000:8000"
     command: "python bin/main.py"
@@ -20,7 +20,7 @@ services:
     networks:
       - store-network
     volumes:
-      - ./:/app
+      - ./order-service:/app
 
   database:
     image: postgres
