@@ -16,6 +16,11 @@ async def kafka_producer():
     """Mock Kafka producer for tests"""
     producer = AsyncMock(spec=KafkaProducer)
     producer.send_message = AsyncMock()
+
+    # Mock context manager
+    producer.__aenter__ = AsyncMock(return_value=producer)
+    producer.__aexit__ = AsyncMock(return_value=None)
+
     return producer
 
 

@@ -1,7 +1,22 @@
+DC := docker compose
+CLI := $(DC) run --rm order-service
+
 .PHONY: test lint
 
 test:
-	docker compose run --rm order-service pytest -vv
+	$(CLI) pytest -vv
 
 lint:
-	docker compose run --rm order-service ruff check --fix . && ruff format .
+	$(CLI) ruff check --fix . && ruff format .
+
+create-migration:
+	$(CLI) bash -c "alembic revision --autogenerate"
+
+setup-database:
+	$(CLI) bash -c "alembic upgrade head"
+
+start: setup-database
+	$(DC) up -d
+
+stop:
+	$(DC) down

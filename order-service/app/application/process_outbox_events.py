@@ -25,27 +25,26 @@ class ProcessOutboxEventsUseCase:
             if not events:
                 return
 
-        # Send each event to Kafka
-        for event in events:
-            async with self._unit_of_work() as uow:
-                try:
-                    await self._kafka_producer.send_message(
-                        message={
-                            "event_type": event.event_type,
-                            "payload": event.payload,
-                            "created_at": event.created_at.isoformat(),
-                        },
-                        key=event.id,
-                    )
-                except Exception as e:
-                    # Log error but continue processing other events
-                    print(f"Failed to send event {event.id}: {e}")
-                    # Could implement retry logic or error handling here
-                    continue
+        async with self._kafka_producer as kp:
+            for event in events:
+                async with self._unit_of_work() as uow:
+                    try:
+                        await kp.send_message(
+                            message={
+                                "event_type": event.event_type,
+                                "payload": event.payload,
+                                "created_at": event.created_at.isoformat(),
+                            },
+                            key=event.id,
+                        )
+                    except Exception as e:
+                        # Log error but continue processing other events
+                        print(f"Failed to send event {event.id}: {e}")
+                        # Could implement retry logic or error handling here
+                        continue
 
-                # Mark as sent
-                await uow.outbox.mark_as_sent(event.id)
-                event = await uow.outbox.get_by_id(event_id=event.id)
+                    # Mark as sent
+                    await uow.outbox.mark_as_sent(event.id)
 
-                # Commit all changes
-                await uow.commit()
+                    # Commit all changes
+                    await uow.commit()

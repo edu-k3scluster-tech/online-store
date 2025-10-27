@@ -25,7 +25,7 @@ class OrderResponseModel(Order):
     response_model=OrderResponseModel,
 )
 @inject
-async def create_bulk_transfer(
+async def create_order(
     order: OrderCreateRequest,
     create_order_use_case: CreateOrderUseCase = Depends(
         Provide[ApplicationContainer.create_order_use_case]
@@ -35,6 +35,6 @@ async def create_bulk_transfer(
         return await create_order_use_case(order=order)
     except Exception:
         return JSONResponse(
-            content={"message": "Internal server error while processing bulk transfer"},
+            content={"message": "Internal server error while creating order"},
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
