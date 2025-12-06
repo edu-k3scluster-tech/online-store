@@ -22,6 +22,55 @@ services:
     volumes:
       - ./order-service:/app
 
+  payment-service:
+    build: ./payment-service/.
+    ports:
+      - "8001:8001"
+    command: "python bin/main.py"
+    environment:
+      DB_USER: dev
+      DB_PASS: store
+      DB_HOST: database
+      DB_NAME: dev
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_ORDERS_TOPIC: orders
+      KAFKA_PAYMENTS_TOPIC: payments
+      KAFKA_CANCELS_TOPIC: cancels
+      PYTHONASYNCIODEBUG: "1"
+    depends_on:
+      database:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - store-network
+    volumes:
+      - ./payment-service:/app
+
+  shipping-service:
+    build: ./shipping-service/.
+    ports:
+      - "8002:8002"
+    command: "python bin/main.py"
+    environment:
+      DB_USER: dev
+      DB_PASS: store
+      DB_HOST: database
+      DB_NAME: dev
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_PAYMENTS_TOPIC: payments
+      KAFKA_SHIPMENTS_TOPIC: shipments
+      PYTHONASYNCIODEBUG: "1"
+    depends_on:
+      database:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - store-network
+    volumes:
+      - ./shipping-service:/app
+
   database:
     image: postgres
     environment:
