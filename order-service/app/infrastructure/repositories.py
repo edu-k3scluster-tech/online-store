@@ -12,8 +12,15 @@ from app.core.models import (
     OrderStatusEnum,
     OutboxEvent,
     OutboxEventStatus,
+    InboxEvent,
+    InboxEventStatus,
 )
-from app.infrastructure.db_schema import order_statuses_tbl, orders_tbl, outbox_tbl
+from app.infrastructure.db_schema import (
+    order_statuses_tbl,
+    orders_tbl,
+    outbox_tbl,
+    inbox_tbl,
+)
 
 
 class DoesNotExist(Exception):
@@ -200,5 +207,61 @@ class OutboxRepository:
             outbox_tbl.update()
             .where(outbox_tbl.c.id == event_id)
             .values(status=OutboxEventStatus.SENT)
+        )
+        await self._session.execute(stmt)
+
+
+class InboxRepository:
+    class CreateDTO(BaseModel):
+        message_id: str
+        event_type: str
+        payload: dict
+
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    @staticmethod
+    def _construct(row: Row | None) -> InboxEvent:
+        if row is None:
+            raise DoesNotExist
+
+        return InboxEvent(
+            id=str(row._mapping["id"]),
+            message_id=row._mapping["message_id"],
+            event_type=row._mapping["event_type"],
+            payload=row._mapping["payload"],
+            status=row._mapping["status"],
+            created_at=row._mapping["created_at"],
+        )
+
+    async def exists(self, message_id: str) -> bool:
+        """Check if message was already processed"""
+        stmt = select(inbox_tbl.c.id).where(inbox_tbl.c.message_id == message_id)
+        result = await self._session.execute(stmt)
+        return result.fetchone() is not None
+
+    async def create(self, event: CreateDTO) -> InboxEvent:
+        stmt = (
+            insert(inbox_tbl)
+            .values(
+                {
+                    "message_id": event.message_id,
+                    "event_type": event.event_type,
+                    "payload": event.payload,
+                    "status": InboxEventStatus.PENDING,
+                }
+            )
+            .returning(literal_column("*"))
+        )
+        result = await self._session.execute(stmt)
+        row = result.fetchone()
+
+        return self._construct(row)
+
+    async def mark_as_processed(self, event_id: str) -> None:
+        stmt = (
+            inbox_tbl.update()
+            .where(inbox_tbl.c.id == event_id)
+            .values(status=InboxEventStatus.PROCESSED)
         )
         await self._session.execute(stmt)
