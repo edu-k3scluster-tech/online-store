@@ -1,8 +1,8 @@
-"""add inbox
+"""initial
 
-Revision ID: 09e86eaa09e0
-Revises: 5b9eb74ab536
-Create Date: 2025-12-06 19:00:14.161893
+Revision ID: b7ece56b18fb
+Revises: 016c00276f07
+Create Date: 2025-12-09 17:31:30.029976
 
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "09e86eaa09e0"
-down_revision: Union[str, Sequence[str], None] = "5b9eb74ab536"
+revision: str = "b7ece56b18fb"
+down_revision: Union[str, Sequence[str], None] = "016c00276f07"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
