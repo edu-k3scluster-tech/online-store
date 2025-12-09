@@ -47,17 +47,3 @@ class OutboxEvent(BaseModel):
     payload: dict
     status: OutboxEventStatus
     created_at: datetime
-
-
-class InboxEventStatus(StrEnum):
-    PENDING = "PENDING"
-    PROCESSED = "PROCESSED"
-
-
-class InboxEvent(BaseModel):
-    id: str
-    message_id: str
-    event_type: str
-    payload: dict
-    status: InboxEventStatus
-    created_at: datetime
