@@ -4,8 +4,9 @@ WORKDIR /app
 
 COPY requirements.txt ./
 
-RUN python -m pip install --upgrade pip && \
-    pip install --default-timeout=1000 --retries 5 -r requirements.txt
+RUN python -m pip install --upgrade pip \
+    && pip install -r requirements.txt
+
 COPY . .
 #COPY bin/ /order/bin/
 
